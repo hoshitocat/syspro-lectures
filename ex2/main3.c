@@ -134,4 +134,35 @@ void testcase3() {
 
 /* 割り付けを受けて，まだ解放されていない領域は，互いに重なっていない． */
 void testcase4(void *mem_table[]) {
+  int num_of_trials = 1000;
+  int distance;
+  int i;
+
+  printf(" Test Case 4: ");
+
+  for ( i = 0; i < num_of_trials; i++ ) {
+    if ( mem_table[i] == NULL ) {
+      mem_table[i] = alloc3( 1000 );
+      if ( mem_table[i] == NULL ) {
+        printf("failed memory allocation !!\n");
+        return;
+      }
+    }
+  }
+
+  for ( i = 0; i < num_of_trials - 1; i++ ) {
+    if ( mem_table[i] == NULL )
+      continue;
+
+    distance = mem_table[i] - mem_table[i + 1];
+    if ( distance < 0 ) { distance = -distance; }
+    if ( distance < 1000 ) {
+      printf("failed memory overlap each other !!\n");
+      return;
+    }
+  }
+
+  printf("successed :) \n");
+
+  return;
 }
