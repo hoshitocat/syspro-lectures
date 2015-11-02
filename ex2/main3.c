@@ -13,7 +13,7 @@ void testcase1(void *mem_table[]);
 void testcase2(void *mem_table[]);
 
 /* 割り付けしたメモリ領域全体に値を書き込んでもエラーにならない． */
-void testcase3(void *mem_table[]);
+void testcase3();
 
 /* 割り付けを受けて，まだ解放されていない領域は，互いに重なっていない． */
 void testcase4(void *mem_table[]);
@@ -91,13 +91,45 @@ void testcase2(void *mem_table[]) {
     }
   }
 
+  // 最後mem_tableを元に戻す
+  for ( i = 0; i < 1000; i++ ) {
+    if ( mem_table[i] != NULL ) {
+      afree3( mem_table[i] );
+      mem_table[i] = NULL;
+    }
+  }
+
   printf("successed :) \n");
 
   return;
 }
 
 /* 割り付けしたメモリ領域全体に値を書き込んでもエラーにならない． */
-void testcase3(void *mem_table[]) {
+void testcase3() {
+  int num_of_trials = 1000;
+  int i;
+  char *japanese_syllabary;
+  char data[] =
+    "あぃいぅうぇえぉお"
+    "かがきぎくぐけげこご"
+    "さざしじすずせぜそぞ"
+    "ただちぢっつづてでとど"
+    "なにぬねの"
+    "はばぱひびぴふぶぷへべ"
+    "まみむめもゃやゅゆょよ"
+    "らりるれろゎわゐゑをん";
+
+  printf(" Test Case 3: ");
+  srand((unsigned)time(NULL));
+
+  for ( i = 0; i < num_of_trials; i++ ) {
+    japanese_syllabary = (char *)alloc3( 4 );
+    strncpy(japanese_syllabary, (rand() % 82) + data, 1);
+  }
+
+  printf("successed :) \n");
+
+  return;
 }
 
 /* 割り付けを受けて，まだ解放されていない領域は，互いに重なっていない． */
