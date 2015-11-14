@@ -177,6 +177,17 @@ static int simple_mknod(const char *path, mode_t mode, dev_t device)
   return 0;
 }
 
+static int simple_rename(const char *path, const char *new_name)
+{
+  struct directory_entry *p;
+
+  if ( (p = search_file(path)) == 0 ) { return -ENOENT; }
+
+  p->name = strdup(new_name + 1);
+
+  return 0;
+}
+
 static struct fuse_operations simple_oper = {
   .getattr	= simple_getattr,
   .readdir	= simple_readdir,
@@ -184,6 +195,7 @@ static struct fuse_operations simple_oper = {
   .read		= simple_read,
   .write	= simple_write,
   .mknod	= simple_mknod,
+  .rename = simple_rename,
 };
 
 int main(int argc, char *argv[])
