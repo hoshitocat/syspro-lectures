@@ -203,7 +203,7 @@ static int adjust_size(struct file_metadata *f, int size) {
   return 0;
 }
 
-static int simple_truncate (const char *path, off_t offset) {
+static int simple_truncate(const char *path, off_t offset) {
   struct directory_entry *p;
 
   if ( (p = search_file(path)) == 0 ) { return -ENOENT; }
@@ -211,6 +211,23 @@ static int simple_truncate (const char *path, off_t offset) {
   if ( adjust_size(p->file, offset) < 0 ) { return -ENOENT; }
 
   return 0;
+}
+
+static int simple_unlink(const char *path) {
+  struct directory_entry *p, *q;
+
+  p = search_file(path);
+  if ( p == 0 ) { return -ENOENT; }
+  if ( p->file->nlink == 1 ) {
+    q = p;
+    if ( p == root ) { root = p->next; }
+    p = p->next;
+    free(q->file);
+    free(q);
+    return 0;
+  } else {
+    return -ENOENT;
+  }
 }
 
 static struct fuse_operations simple_oper = {
@@ -222,6 +239,7 @@ static struct fuse_operations simple_oper = {
   .mknod	= simple_mknod,
   .rename = simple_rename,
   .truncate = simple_truncate,
+  .unlink = simple_unlink,
 };
 
 int main(int argc, char *argv[])

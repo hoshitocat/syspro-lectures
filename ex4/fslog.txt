@@ -73,3 +73,24 @@ close(2)                                = 0
 exit_group(0)                           = ?
 +++ exited with 0 +++
 ```
+
+# 課題4(オプション課題)
+unlink 関数を追加し，ファイルを削除できるようにしなさい．
+存在しないファイル名を渡された時には -ENOENT を返すようにしなさい．
+rm コマンドでファイルが削除できることを確かめなさい．
+#### 以下straceコマンドで確認したもの
+```
+ioctl(0, SNDCTL_TMR_TIMEBASE or SNDRV_TIMER_IOCTL_NEXT_DEVICE or TCGETS, {B38400 opost isig icanon echo ...}) = 0
+newfstatat(AT_FDCWD, "aaa.txt", {st_mode=S_IFREG|0664, st_size=6, ...}, AT_SYMLINK_NOFOLLOW) = 0
+geteuid()                               = 1000
+newfstatat(AT_FDCWD, "aaa.txt", {st_mode=S_IFREG|0664, st_size=6, ...}, AT_SYMLINK_NOFOLLOW) = 0
+faccessat(AT_FDCWD, "aaa.txt", W_OK)    = 0
+unlinkat(AT_FDCWD, "aaa.txt", 0)        = 0
+lseek(0, 0, SEEK_CUR)                   = -1 ESPIPE (Illegal seek)
+close(0)                                = 0
+close(1)                                = 0
+close(2)                                = 0
+exit_group(0)                           = ?
++++ exited with 0 +++
+```
+
