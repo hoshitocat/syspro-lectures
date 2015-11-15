@@ -188,6 +188,31 @@ static int simple_rename(const char *path, const char *new_name)
   return 0;
 }
 
+static int adjust_size(struct file_metadata *f, int size) {
+  char *new_data;
+
+  new_data = calloc(size, 1);
+  if ( new_data == NULL ) { return -1; }
+
+  memcpy(new_data, f->data, size);
+  free(f->data);
+  f->data = new_data;
+  f->length = size;
+  f->capacity = (int)sizeof(f->data);
+
+  return 0;
+}
+
+static int simple_truncate (const char *path, off_t offset) {
+  struct directory_entry *p;
+
+  if ( (p = search_file(path)) == 0 ) { return -ENOENT; }
+  if ( offset < 0 ) { return -ENOENT; }
+  if ( adjust_size(p->file, offset) < 0 ) { return -ENOENT; }
+
+  return 0;
+}
+
 static struct fuse_operations simple_oper = {
   .getattr	= simple_getattr,
   .readdir	= simple_readdir,
@@ -196,6 +221,7 @@ static struct fuse_operations simple_oper = {
   .write	= simple_write,
   .mknod	= simple_mknod,
   .rename = simple_rename,
+  .truncate = simple_truncate,
 };
 
 int main(int argc, char *argv[])

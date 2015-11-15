@@ -38,4 +38,38 @@ exit_group(0)                           = ?
 ```
 
 # 課題3
+truncate 関数を追加し，ファイルの大きさを変更できるようにしなさい．
+ファイルが大きくなることもあることに注意．
+第2引数が負ならば，-EINVALを返し，ファイルが多き過ぎてメモリが足りない
+ならば -ENOSPC を返すようにしなさい．
+cp コマンドで既に存在するファイルを上書きできることを確かめなさい．
 
+#### 以下cpコマンドで確認時に使用したファイルの中身
+```
+$ cat aaa.txt
+$ cat bbb.txt
+Hello, World!d
+```
+
+#### 以下straceコマンドで確認したもの
+```
+stat("aaa.txt", {st_mode=S_IFREG|0664, st_size=0, ...}) = 0
+stat("bbb.txt", {st_mode=S_IFREG|0664, st_size=14, ...}) = 0
+stat("aaa.txt", {st_mode=S_IFREG|0664, st_size=0, ...}) = 0
+open("bbb.txt", O_RDONLY)               = 3
+fstat(3, {st_mode=S_IFREG|0664, st_size=14, ...}) = 0
+open("aaa.txt", O_WRONLY|O_TRUNC)       = 4
+fstat(4, {st_mode=S_IFREG|0664, st_size=0, ...}) = 0
+fadvise64(3, 0, 0, POSIX_FADV_SEQUENTIAL) = 0
+read(3, "Hello, World!\n", 65536)       = 14
+write(4, "Hello, World!\n", 14)         = 14
+read(3, "", 65536)                      = 0
+close(4)                                = 0
+close(3)                                = 0
+lseek(0, 0, SEEK_CUR)                   = -1 ESPIPE (Illegal seek)
+close(0)                                = 0
+close(1)                                = 0
+close(2)                                = 0
+exit_group(0)                           = ?
++++ exited with 0 +++
+```
