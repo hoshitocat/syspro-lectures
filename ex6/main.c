@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <signal.h>
+#include <pthread.h>
 
 #include "logutil.h"
 
@@ -18,6 +20,12 @@
 #endif
 
 char *program_name = "sp6-server";
+
+pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+sigset_t intset;
+sigset_t termset;
+int sigint = 0;
+int sigterm = 0;
 
 int open_accepting_socket(int port) {
   struct sockaddr_in self_addr;
@@ -52,6 +60,30 @@ void usage(void) {
   exit(1);
 }
 
+void *handle_int(void *arg) {
+  int sig, err;
+
+  err = sigwait(&intset, &sig);
+  if (err || sig != SIGINT)
+    abort();
+  pthread_mutex_lock(&m);
+  logutil_info("\nbye");
+  sigint = 1;
+  pthread_mutex_unlock(&m);
+}
+
+void *handle_term(void *arg) {
+  int sig, err;
+
+  err = sigwait(&termset, &sig);
+  if (err || sig != SIGTERM)
+    abort();
+  pthread_mutex_lock(&m);
+  logutil_info("bye\n");
+  sigterm = 1;
+  pthread_mutex_unlock(&m);
+}
+
 void main_loop(int self_addr) {
   int sock, n;
   struct sockaddr_in client_addr;
@@ -70,6 +102,12 @@ void main_loop(int self_addr) {
       logutil_info("disconnected\n");
       break;
     }
+
+    if (sigint || sigterm) {
+      logutil_info("disconnected\n");
+      break;
+    }
+
     write(sock, buf, strlen(buf) + 1);
   }
   close(sock);
@@ -79,6 +117,7 @@ int main(int argc, char **argv) {
   char *port_number = NULL;
   int ch, sock, server_port = DEFAULT_SERVER_PORT;
   int debug_mode = 0;
+  pthread_t t;
 
   while ((ch = getopt(argc, argv, "dp:")) != -1) {
     switch (ch) {
@@ -106,6 +145,18 @@ int main(int argc, char **argv) {
     logutil_syslog_open(program_name, LOG_PID, LOG_LOCAL0);
     daemon(0, 0);
   }
+
+  sigemptyset(&intset);
+  sigemptyset(&termset);
+
+  sigaddset(&intset, SIGINT);
+  sigaddset(&termset, SIGTERM);
+
+  pthread_sigmask(SIG_BLOCK, &intset, NULL);
+  pthread_sigmask(SIG_BLOCK, &termset, NULL);
+
+  pthread_create(&t, NULL, handle_int, NULL);
+  pthread_create(&t, NULL, handle_term, NULL);
 
   /*
    * 無限ループでsockをacceptし，acceptしたらそのクライアント用

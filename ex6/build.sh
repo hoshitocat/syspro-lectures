@@ -1,3 +1,3 @@
 cc -c logutil.c
 cc -c main.c
-cc -o app main.o logutil.o
+cc -o app -pthread main.o logutil.o
