@@ -372,29 +372,350 @@ Enqueue 60回目 : thirty
 \section{演習7-2}
 \begin{itembox}[l]{プログラム}
   \begin{verbatim}
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <pthread.h>
+
+char *num_str[] = { "one", "two", "three", "four", "five", "six", "seven",
+  "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen",
+  "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty",
+  "twenty one", "twenty two", "twenty three", "twenty four", "twenty five",
+  "twenty six", "twenty seven", "twenty eight", "twenty nine", "thirty" };
+
+int dequeue_count = 0;
+int enqueue_count = 0;
+
+struct entry {
+  struct entry *next;
+  void *data;
+};
+
+struct list {
+  struct entry *head;
+  struct entry **tail;
+  pthread_mutex_t lock;
+  int size;
+};
+
+struct list *list_init(void) {
+  struct list *list;
+
+  list = malloc(sizeof *list);
+  if (list == NULL)
+    return (NULL);
+  list->head = NULL;
+  list->tail = &list->head;
+  list->lock = PTHREAD_MUTEX_INITIALIZER;
+  list->size = 0;
+  return (list);
+}
   \end{verbatim}
 \end{itembox}
 
 \begin{itembox}[l]{プログラム(続き)}
   \begin{verbatim}
+int list_enqueue(struct list *list, void *data) {
+  struct entry *e;
+
+  e = malloc(sizeof *e);
+  if (e == NULL)
+    return (1);
+  e->next = NULL;
+  e->data = data;
+  pthread_mutex_lock(&list->lock);
+  *list->tail = e;
+  list->tail = &e->next;
+  list->size++;
+  pthread_mutex_unlock(&list->lock);
+  return (0);
+}
+
+struct entry *list_dequeue(struct list *list) {
+  struct entry *e;
+
+  pthread_mutex_lock(&list->lock);
+  if (list->head == NULL) {
+    pthread_mutex_unlock(&list->lock);
+    return(NULL);
+  }
+  e = list->head;
+  list->head = e->next;
+  list->size--;
+  if (list->head == NULL)
+    list->tail = &list->head;
+  pthread_mutex_unlock(&list->lock);
+  return (e);
+}
+  \end{verbatim}
+\end{itembox}
+
+\begin{itembox}[l]{プログラム(続き)}
+  \begin{verbatim}
+struct entry *list_traverse
+(struct list *list, int (*func)(void *, void *), void *user) {
+  struct entry **prev, *n, *next;
+
+  if (list == NULL)
+    return (NULL);
+
+  prev = &list->head;
+  for (n = list->head; n != NULL; n = next) {
+    next = n->next;
+    switch (func(n->data, user)) {
+      case 0:
+        /* continues */
+        prev = &n->next;
+        break;
+      case 1:
+        /* delete the entry */
+        *prev = next;
+        if (next == NULL)
+          list->tail = prev;
+        return (n);
+      case -1:
+      default:
+        /* traversal stops */
+        return (NULL);
+    }
+  }
+  return (NULL);
+}
+  \end{verbatim}
+\end{itembox}
+
+\begin{itembox}[l]{プログラム(続き)}
+  \begin{verbatim}
+int print_entry(void *e, void *u) {
+  printf("%s\n", (char *)e);
+  return (0);
+}
+
+int delete_entry(void *e, void *u) {
+  char *c1 = e, *c2 = u;
+
+  return (!strcmp(c1, c2));
+}
+
+// NOTE: 30エントリ追加するための関数
+void *put_thirty_entries(void *arg) {
+  int i = 0;
+  struct list *list = (struct list *)arg;
+  for (i = 0; i < 30; i++) {
+    enqueue_count++;
+    list_enqueue(list, strdup(num_str[i]));
+    printf("Enqueue %d回目 : %s\n", enqueue_count, num_str[i]);
+  }
+}
+
+// NOTE: 10エントリ取り出す関数
+void *get_ten_entries(void *arg) {
+  struct list *list = (struct list *)arg;
+  struct entry *entry;
+  int i = 0;
+
+  for (i = 0; i < 10; i++) {
+    entry = list_dequeue(list);
+    dequeue_count++;
+    printf("Dequeue %d回目 : %s\n", dequeue_count, (char *)entry->data);
+    free(entry->data);
+    free(entry);
+  }
+}
+  \end{verbatim}
+\end{itembox}
+
+
+\begin{itembox}[l]{プログラム(続き)}
+  \begin{verbatim}
+int main() {
+  struct list *list;
+  struct entry *entry;
+
+  // NOTE: 30エントリ追加するためのスレッド2つ
+  pthread_t put_thirty_entries1, put_thirty_entries2;
+  // NOTE: 10エントリ取り出すためのスレッド6つ
+  pthread_t get_ten_entries1, get_ten_entries2, get_ten_entries3,
+            get_ten_entries4, get_ten_entries5, get_ten_entries6;
+
+  list = list_init();
+
+  pthread_create(&put_thirty_entries1, NULL, put_thirty_entries, (void *)(list));
+  pthread_create(&get_ten_entries1, NULL, get_ten_entries, (void *)(list));
+  pthread_create(&get_ten_entries2, NULL, get_ten_entries, (void *)(list));
+  pthread_create(&get_ten_entries3, NULL, get_ten_entries, (void *)(list));
+  pthread_create(&get_ten_entries4, NULL, get_ten_entries, (void *)(list));
+  pthread_create(&get_ten_entries5, NULL, get_ten_entries, (void *)(list));
+  pthread_create(&put_thirty_entries2, NULL, put_thirty_entries, (void *)(list));
+  pthread_create(&get_ten_entries6, NULL, get_ten_entries, (void *)(list));
+
+  pthread_join(put_thirty_entries1, NULL);
+  pthread_join(get_ten_entries1, NULL);
+  pthread_join(get_ten_entries2, NULL);
+  pthread_join(get_ten_entries3, NULL);
+  pthread_join(get_ten_entries4, NULL);
+  pthread_join(get_ten_entries5, NULL);
+  pthread_join(put_thirty_entries2, NULL);
+  pthread_join(get_ten_entries6, NULL);
+
+  /* entry list */
+  list_traverse(list, print_entry, NULL);
+
+  return (0);
+}
   \end{verbatim}
 \end{itembox}
 
 \begin{itembox}[l]{実行結果}
   \begin{verbatim}
+$ ./app
+Enqueue 1回目 : one
+Enqueue 2回目 : two
+Enqueue 3回目 : three
+Enqueue 4回目 : four
+Enqueue 5回目 : five
+Enqueue 6回目 : six
+Enqueue 7回目 : seven
+Enqueue 8回目 : eight
+Enqueue 9回目 : nine
+Enqueue 10回目 : ten
+Enqueue 11回目 : eleven
+Enqueue 12回目 : twelve
+Enqueue 13回目 : thirteen
+Enqueue 14回目 : fourteen
+Enqueue 15回目 : fifteen
+Enqueue 16回目 : sixteen
+Enqueue 17回目 : seventeen
+Enqueue 18回目 : eighteen
+Enqueue 19回目 : nineteen
+Enqueue 20回目 : twenty
+Enqueue 21回目 : twenty one
+Enqueue 22回目 : twenty two
+Enqueue 23回目 : twenty three
+Enqueue 24回目 : twenty four
+Enqueue 25回目 : twenty five
+Enqueue 26回目 : twenty six
+Enqueue 27回目 : twenty seven
+Enqueue 28回目 : twenty eight
+Enqueue 29回目 : twenty nine
+Enqueue 30回目 : thirty
+Dequeue 1回目 : one
+Dequeue 4回目 : four
+Dequeue 5回目 : five
+Dequeue 6回目 : six
+Dequeue 7回目 : seven
+Dequeue 8回目 : eight
+Dequeue 9回目 : nine
+Dequeue 10回目 : ten
+Dequeue 11回目 : eleven
+Dequeue 12回目 : twelve
   \end{verbatim}
 \end{itembox}
 
 \begin{itembox}[l]{実行結果(続き)}
   \begin{verbatim}
+Dequeue 3回目 : three
+Dequeue 13回目 : thirteen
+Dequeue 14回目 : fourteen
+Dequeue 15回目 : fifteen
+Dequeue 16回目 : sixteen
+Dequeue 17回目 : seventeen
+Dequeue 18回目 : eighteen
+Dequeue 19回目 : nineteen
+Dequeue 20回目 : twenty
+Dequeue 21回目 : twenty one
+Dequeue 2回目 : two
+Dequeue 22回目 : twenty two
+Dequeue 23回目 : twenty three
+Dequeue 24回目 : twenty four
+Dequeue 25回目 : twenty five
+Dequeue 26回目 : twenty six
+Dequeue 27回目 : twenty seven
+Dequeue 28回目 : twenty eight
+Dequeue 29回目 : twenty nine
+Dequeue 30回目 : thirty
+Dequeue 31回目 : one
+Enqueue 31回目 : one
+Dequeue 32回目 : two
+Enqueue 32回目 : two
+Enqueue 33回目 : three
+Dequeue 33回目 : three
+Dequeue 34回目 : four
+Enqueue 34回目 : four
+Dequeue 35回目 : five
+Enqueue 35回目 : five
+Dequeue 36回目 : six
+Enqueue 36回目 : six
+Dequeue 37回目 : seven
+Enqueue 37回目 : seven
+Dequeue 38回目 : eight
+Enqueue 38回目 : eight
+Dequeue 39回目 : nine
+Enqueue 39回目 : nine
+Dequeue 40回目 : ten
+Enqueue 40回目 : ten
+Dequeue 41回目 : eleven
+Enqueue 41回目 : eleven
+  \end{verbatim}
+\end{itembox}
+
+\begin{itembox}[l]{実行結果(続き)}
+  \begin{verbatim}
+Dequeue 42回目 : twelve
+Enqueue 42回目 : twelve
+Dequeue 43回目 : thirteen
+Enqueue 43回目 : thirteen
+Dequeue 44回目 : fourteen
+Enqueue 44回目 : fourteen
+Dequeue 45回目 : fifteen
+Enqueue 45回目 : fifteen
+Dequeue 46回目 : sixteen
+Enqueue 46回目 : sixteen
+Dequeue 47回目 : seventeen
+Enqueue 47回目 : seventeen
+Dequeue 48回目 : eighteen
+Enqueue 48回目 : eighteen
+Dequeue 49回目 : nineteen
+Enqueue 49回目 : nineteen
+Dequeue 50回目 : twenty
+Enqueue 50回目 : twenty
+Dequeue 51回目 : twenty one
+Enqueue 51回目 : twenty one
+Dequeue 52回目 : twenty two
+Enqueue 52回目 : twenty two
+Dequeue 53回目 : twenty three
+Enqueue 53回目 : twenty three
+Dequeue 54回目 : twenty four
+Enqueue 54回目 : twenty four
+Dequeue 55回目 : twenty five
+Enqueue 55回目 : twenty five
+Dequeue 56回目 : twenty six
+Enqueue 56回目 : twenty six
+Dequeue 57回目 : twenty seven
+Enqueue 57回目 : twenty seven
+Dequeue 58回目 : twenty eight
+Enqueue 58回目 : twenty eight
+Dequeue 59回目 : twenty nine
+Enqueue 59回目 : twenty nine
+Dequeue 60回目 : thirty
+Enqueue 60回目 : thirty
   \end{verbatim}
 \end{itembox}
 
 \newpage
 
 \section{考察}
+スレッドが扱うデータのロック方法は様々あるが、それぞれに特徴があり使いどころ
+を間違えないようにしないと、デッドロックの危険性やパフォーマンス低下の
+恐れがあるので、各データロックの特徴を把握した上で開発することが重要であるとわかった．
 
 \section{授業の感想}
+今回の課題を解く上で授業で説明していた内容がかなり重要になっており、
+授業のスライドはあくまで補足説明程度なので、次回が最後ですがメモを取るように
+しようと思い直しました。
+
+授業の最初に前回の課題内容の解答・解説がありますが、スライドに含まれていないので
+メモを取る時間が少しほしいなと思いました。
 
 \end{document}
 

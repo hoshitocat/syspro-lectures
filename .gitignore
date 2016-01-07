@@ -19,4 +19,9 @@
 /ex7/report/report.dvi
 /ex7/report/report.log
 /ex7/app
+/ex8/report/report.aux
+/ex8/report/report.dvi
+/ex8/report/report.log
+/ex8/app
+/ex8/*.o
 
